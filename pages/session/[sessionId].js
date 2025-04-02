@@ -90,14 +90,9 @@ export default function SessionPage() {
         });
 
         // Listen for player list updates
-        socket.on('playerList', (data) => {
-            setPlayers(data.players);
-
-            // Check if current player has voted
-            const currentPlayer = data.players.find(p => p.name === playerName);
-            if (currentPlayer) {
-                setPlayerHasVoted(currentPlayer.hasVoted);
-            }
+        socket.on('playerJoined', (data) => {
+            console.log('Player joined:', data.player);
+            setPlayers((players) => [...players, data.player]);
         });
 
         // Listen for task updates
@@ -345,8 +340,8 @@ export default function SessionPage() {
                                                 onClick={handleSpin}
                                                 disabled={isSpinning || players.filter(p => p.hasVoted).length === 0}
                                                 className={`px-4 py-2 text-sm font-medium rounded-md ${isSpinning || players.filter(p => p.hasVoted).length === 0
-                                                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                                        : 'bg-red-600 text-white hover:bg-red-700'
+                                                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                                    : 'bg-red-600 text-white hover:bg-red-700'
                                                     }`}
                                             >
                                                 {isSpinning ? 'Spinning...' : 'Spin the Wheel!'}
@@ -397,8 +392,8 @@ export default function SessionPage() {
                                                 onClick={() => handleSelectPoints(points)}
                                                 disabled={isSpinning || playerHasVoted}
                                                 className={`p-4 text-center rounded-md transition-all ${isSelected
-                                                        ? 'bg-red-600 text-white transform scale-110 shadow-md'
-                                                        : 'bg-white border hover:bg-gray-50'
+                                                    ? 'bg-red-600 text-white transform scale-110 shadow-md'
+                                                    : 'bg-white border hover:bg-gray-50'
                                                     } ${isSpinning || (playerHasVoted && !isSelected) ? 'cursor-not-allowed opacity-50' : ''
                                                     }`}
                                             >

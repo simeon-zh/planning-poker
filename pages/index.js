@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
-import io from 'socket.io-client';
 
 export default function Home() {
     const router = useRouter();
@@ -70,9 +69,6 @@ export default function Home() {
 
             // Generate a random session ID
             const newSessionId = Math.random().toString(36).substring(2, 8).toUpperCase();
-
-            // Mark this user as the creator of this session
-            localStorage.setItem('isSessionCreator', newSessionId);
 
             console.log(`Created session: ${newSessionId}`);
 
@@ -152,8 +148,8 @@ export default function Home() {
                             onClick={handleJoinSession}
                             disabled={isJoining}
                             className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${isJoining
-                                    ? 'bg-gray-400 cursor-not-allowed'
-                                    : 'bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500'
+                                ? 'bg-gray-400 cursor-not-allowed'
+                                : 'bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500'
                                 }`}
                         >
                             {isJoining ? 'Joining...' : 'Join Session'}
@@ -172,8 +168,8 @@ export default function Home() {
                             onClick={handleCreateSession}
                             disabled={isCreating}
                             className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${isCreating
-                                    ? 'bg-gray-400 cursor-not-allowed'
-                                    : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+                                ? 'bg-gray-400 cursor-not-allowed'
+                                : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
                                 }`}
                         >
                             {isCreating ? 'Creating...' : name.trim() ? `Create Session as "${name}"` : 'Create Session as "Admin"'}

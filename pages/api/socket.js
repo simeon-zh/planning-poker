@@ -1,22 +1,17 @@
 // pages/api/socket.js
-import { Server } from 'socket.io';
-import { initSocketServer } from '../../lib/socketServer';
+import { initSocket } from '@/lib/socket';
 
-export default function SocketHandler(req, res) {
-    // If Socket.IO server is already running, skip initialization
-    if (res.socket.server.io) {
-        console.log('Socket.IO server already running');
+export default function handler(req, res) {
+    try {
+        console.log('Socket.IO API endpoint called');
+        // Initialize Socket.IO
+        const io = initSocket(res);
+        console.log('Socket.IO initialized:', !!io);
+
+        // SendStatus is not used here because the socket server will handle the communication
         res.end();
-        return;
+    } catch (error) {
+        console.error('Error initializing Socket.IO:', error);
+        res.status(500).end();
     }
-
-    console.log('Starting Socket.IO server');
-    const io = new Server(res.socket.server);
-    res.socket.server.io = io;
-
-    // Initialize socket handlers
-    initSocketServer(io);
-
-    console.log('Socket.IO server initialized');
-    res.end();
 }

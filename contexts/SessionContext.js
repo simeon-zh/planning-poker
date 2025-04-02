@@ -25,6 +25,7 @@ export function SessionProvider({ children }) {
     const [isVotingActive, setIsVotingActive] = useState(false);
     const [playerHasVoted, setPlayerHasVoted] = useState(false);
 
+    // Effect to initialize socket connection
     useEffect(() => {
         // Create socket connection only on client-side
         if (typeof window === 'undefined') return;
@@ -37,6 +38,62 @@ export function SessionProvider({ children }) {
             socketIo.disconnect();
         };
     }, []);
+
+    // Load session data from sessionStorage on initial load
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        try {
+            // Get current session ID from URL
+            const sessionId = router.query.sessionId;
+            if (!sessionId) return;
+
+            // Try to restore previous session state if it exists
+            const sessionStorageKey = `planningRoulette_${sessionId}`;
+            const savedSessionData = sessionStorage.getItem(sessionStorageKey);
+
+            if (savedSessionData) {
+                const parsedData = JSON.parse(savedSessionData);
+                console.log('Restored session data from storage:', parsedData);
+
+                // Restore state from session storage
+                if (parsedData.result !== undefined) setResult(parsedData.result);
+                if (parsedData.selectedPoints !== undefined) setSelectedPoints(parsedData.selectedPoints);
+                if (parsedData.hasSpun !== undefined) setHasSpun(parsedData.hasSpun);
+                if (parsedData.isVotingActive !== undefined) setIsVotingActive(parsedData.isVotingActive);
+                if (parsedData.currentTask !== undefined) setCurrentTask(parsedData.currentTask);
+                if (parsedData.players) setPlayers(parsedData.players);
+                if (parsedData.playerHasVoted !== undefined) setPlayerHasVoted(parsedData.playerHasVoted);
+            }
+        } catch (error) {
+            console.error('Error loading session data from storage:', error);
+        }
+    }, [router.query.sessionId]);
+
+    // Effect to save session data to sessionStorage when it changes
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const sessionId = router.query.sessionId;
+        if (!sessionId) return;
+
+        try {
+            const sessionStorageKey = `planningRoulette_${sessionId}`;
+            const sessionData = {
+                result,
+                selectedPoints,
+                hasSpun,
+                isVotingActive,
+                currentTask,
+                players,
+                playerHasVoted
+            };
+
+            sessionStorage.setItem(sessionStorageKey, JSON.stringify(sessionData));
+        } catch (error) {
+            console.error('Error saving session data to storage:', error);
+        }
+    }, [result, selectedPoints, hasSpun, isVotingActive, currentTask, players, playerHasVoted, router.query.sessionId]);
 
     // Effect to handle initial loading and name check
     useEffect(() => {
@@ -110,14 +167,11 @@ export function SessionProvider({ children }) {
                 return;
             }
 
-            if (Object.keys(data).length === 0) {
-                console.error('Received empty wheel result data');
-                return;
-            }
-
             try {
+                // Properly handle the result field which could be a number or string
                 if (data.result !== undefined) {
-                    const numericResult = Number(data.result);
+                    // Ensure result is a number
+                    const numericResult = parseFloat(data.result);
                     if (!isNaN(numericResult)) {
                         console.log(`Setting numeric result: ${numericResult}`);
                         setResult(numericResult);
@@ -128,10 +182,18 @@ export function SessionProvider({ children }) {
                     console.error('No result field in wheel data');
                 }
 
+                // Update players with their votes if provided
                 if (Array.isArray(data.players)) {
-                    setPlayers(data.players);
+                    // Process player data, ensuring all properties are correctly handled
+                    const processedPlayers = data.players.map(player => ({
+                        ...player,
+                        vote: player.vote !== undefined ? player.vote : null,
+                        hasVoted: !!player.hasVoted
+                    }));
+                    setPlayers(processedPlayers);
                 }
 
+                // Update task information if provided
                 if (data.task && data.task.name) {
                     setCurrentTask(data.task.name);
                 }
@@ -148,7 +210,30 @@ export function SessionProvider({ children }) {
 
         socket.on('playerJoined', (data) => {
             console.log('Player joined:', data);
-            setPlayers(prevPlayers => [...prevPlayers, data]);
+            setPlayers(prevPlayers => {
+                // If player already exists, update their data
+                const existingPlayerIndex = prevPlayers.findIndex(p => p.id === data.id);
+                if (existingPlayerIndex >= 0) {
+                    const updatedPlayers = [...prevPlayers];
+                    updatedPlayers[existingPlayerIndex] = {
+                        ...updatedPlayers[existingPlayerIndex],
+                        ...data
+                    };
+                    return updatedPlayers;
+                } else {
+                    // Otherwise add the new player
+                    return [...prevPlayers, data];
+                }
+            });
+        });
+
+        socket.on('playerVoted', (data) => {
+            console.log('Player voted:', data);
+            setPlayers(prevPlayers => prevPlayers.map(player =>
+                player.id === data.playerId
+                    ? { ...player, hasVoted: true }
+                    : player
+            ));
         });
 
         socket.on('taskUpdate', (data) => {
@@ -169,13 +254,20 @@ export function SessionProvider({ children }) {
 
         socket.on('wheelResult', handleWheelResult);
 
+        socket.on('playerLeft', (data) => {
+            console.log('Player left:', data);
+            setPlayers(prevPlayers => prevPlayers.filter(p => p.id !== data.playerId));
+        });
+
         // Clean up listeners when component unmounts
         return () => {
             socket.off('adminStatus');
             socket.off('playerJoined');
+            socket.off('playerVoted');
             socket.off('taskUpdate');
             socket.off('wheelSpinning');
             socket.off('wheelResult');
+            socket.off('playerLeft');
         };
     }, [socket]);
 
@@ -240,7 +332,10 @@ export function SessionProvider({ children }) {
         if (isSpinning || !isVotingActive || !socket || !sessionId) return;
 
         // Emit spin event to server
-        socket.emit('spinWheel', { sessionId, votes: players.map(p => p.vote) });
+        socket.emit('spinWheel', {
+            sessionId,
+            votes: players.map(p => p.vote)
+        });
     };
 
     // Join an existing session

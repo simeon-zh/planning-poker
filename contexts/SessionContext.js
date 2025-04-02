@@ -126,6 +126,23 @@ export function SessionProvider({ children }) {
                 if (isCreator) {
                     // If this user created the session, they are the admin
                     setIsAdmin(true);
+
+                    // Add the admin to the players list immediately
+                    const adminPlayer = {
+                        id: socket.id,
+                        name: storedName,
+                        isAdmin: true,
+                        hasVoted: false
+                    };
+
+                    setPlayers(prev => {
+                        // Check if this player is already in the list
+                        const exists = prev.some(p => p.name === storedName);
+                        if (!exists) {
+                            return [...prev, adminPlayer];
+                        }
+                        return prev;
+                    });
                 }
             }
         }
@@ -167,6 +184,11 @@ export function SessionProvider({ children }) {
                 return;
             }
 
+            if (Object.keys(data).length === 0) {
+                console.error('Received empty wheel result data');
+                return;
+            }
+
             try {
                 // Properly handle the result field which could be a number or string
                 if (data.result !== undefined) {
@@ -177,20 +199,46 @@ export function SessionProvider({ children }) {
                         setResult(numericResult);
                     } else {
                         console.error(`Non-numeric result received:`, data.result);
+                        // Try to use a fallback if available
+                        if (data.exactAverage && !isNaN(parseFloat(data.exactAverage))) {
+                            console.log(`Using exactAverage as fallback: ${data.exactAverage}`);
+                            setResult(parseFloat(data.exactAverage));
+                        }
                     }
                 } else {
                     console.error('No result field in wheel data');
+
+                    // Attempt to derive a result from players' votes if no result is provided
+                    if (Array.isArray(data.players) && data.players.length > 0) {
+                        const votes = data.players
+                            .filter(p => p.vote !== null && p.vote !== undefined && !isNaN(Number(p.vote)))
+                            .map(p => Number(p.vote));
+
+                        if (votes.length > 0) {
+                            const average = votes.reduce((sum, vote) => sum + vote, 0) / votes.length;
+                            console.log(`Calculated fallback average from player votes: ${average}`);
+                            setResult(average);
+                        }
+                    }
                 }
 
                 // Update players with their votes if provided
-                if (Array.isArray(data.players)) {
+                if (Array.isArray(data.players) && data.players.length > 0) {
+                    console.log(`Updating players with votes. Players count: ${data.players.length}`);
+
                     // Process player data, ensuring all properties are correctly handled
                     const processedPlayers = data.players.map(player => ({
-                        ...player,
-                        vote: player.vote !== undefined ? player.vote : null,
-                        hasVoted: !!player.hasVoted
+                        id: player.id || '',
+                        name: player.name || '',
+                        isAdmin: !!player.isAdmin,
+                        hasVoted: !!player.hasVoted,
+                        vote: player.vote !== undefined ? player.vote : null
                     }));
+
                     setPlayers(processedPlayers);
+                    console.log('Players updated with votes:', processedPlayers);
+                } else {
+                    console.error('No valid players array in wheel result data');
                 }
 
                 // Update task information if provided
@@ -225,6 +273,13 @@ export function SessionProvider({ children }) {
                     return [...prevPlayers, data];
                 }
             });
+        });
+
+        socket.on('playerList', (data) => {
+            console.log('Received player list:', data);
+            if (data.players && Array.isArray(data.players)) {
+                setPlayers(data.players);
+            }
         });
 
         socket.on('playerVoted', (data) => {
@@ -263,6 +318,7 @@ export function SessionProvider({ children }) {
         return () => {
             socket.off('adminStatus');
             socket.off('playerJoined');
+            socket.off('playerList');
             socket.off('playerVoted');
             socket.off('taskUpdate');
             socket.off('wheelSpinning');
@@ -313,7 +369,7 @@ export function SessionProvider({ children }) {
         setSelectedPoints(numericPoints);
         setPlayerHasVoted(true);
 
-        // Update players array
+        // Update players array to mark this player as voted
         setPlayers(prev =>
             prev.map(p => p.name === playerName ? { ...p, hasVoted: true } : p)
         );
@@ -329,7 +385,33 @@ export function SessionProvider({ children }) {
     // Handle spinning the wheel
     const handleSpin = () => {
         const sessionId = router.query.sessionId;
-        if (isSpinning || !isVotingActive || !socket || !sessionId) return;
+
+        // Check if spinning is already in progress
+        if (isSpinning) {
+            console.log("Already spinning, can't spin again");
+            return;
+        }
+
+        // Check if we have an active voting session
+        if (!isVotingActive) {
+            console.log("No active voting session");
+            return;
+        }
+
+        // Check if we have the socket and session ID
+        if (!socket || !sessionId) {
+            console.log("Missing socket or session ID");
+            return;
+        }
+
+        // Check if any players have voted
+        const hasVotes = players.some(player => player.hasVoted);
+        if (!hasVotes) {
+            console.log("No votes submitted yet");
+            return;
+        }
+
+        console.log("Spinning the wheel...");
 
         // Emit spin event to server
         socket.emit('spinWheel', {

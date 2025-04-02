@@ -114,39 +114,21 @@ function RouletteWheel({ isSpinning, result }) {
                     )}
                 </div>
 
-                {/* Add wheel sections for visual effect */}
+                {/* Wheel design - just simple patterns instead of showing numbers */}
                 {!isSpinning && !isAnimating && displayResult === null && (
-                    <>
-                        {validPoints.map((point, index) => (
-                            <div
-                                key={point}
-                                className="absolute w-full h-full"
-                                style={{
-                                    transform: `rotate(${index * (360 / validPoints.length)}deg)`,
-                                    clipPath: 'polygon(50% 50%, 50% 0, 100% 0, 100% 50%)',
-                                    backgroundColor: index % 2 === 0 ? '#991b1b' : '#7f1d1d',
-                                }}
-                            >
-                                <span
-                                    className="absolute text-white text-sm"
-                                    style={{
-                                        top: '25%',
-                                        left: '75%',
-                                        transform: 'translate(-50%, -50%)'
-                                    }}
-                                >
-                                    {point}
-                                </span>
-                            </div>
-                        ))}
-                    </>
+                    <div className="absolute inset-0 rounded-full overflow-hidden">
+                        <div className="absolute w-full h-full border-2 border-red-800 rounded-full"></div>
+                        <div className="absolute w-full h-1/2 border-b-2 border-red-800"></div>
+                        <div className="absolute w-1/2 h-full border-r-2 border-red-800"></div>
+                        <div className="absolute w-full h-full" style={{
+                            backgroundImage: "radial-gradient(circle at center, transparent 25%, rgba(0,0,0,0.1) 25%, rgba(0,0,0,0.1) 50%, transparent 50%, transparent 75%, rgba(0,0,0,0.1) 75%)",
+                            backgroundSize: "50px 50px"
+                        }}></div>
+                    </div>
                 )}
             </div>
         </div>
     );
 }
-
-// Define valid points array for the wheel sections
-const validPoints = [0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89];
 
 export default RouletteWheel;

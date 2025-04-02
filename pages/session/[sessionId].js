@@ -21,11 +21,28 @@ export default function SessionPage() {
 
     // Function to calculate average of all votes
     const calculateAverage = (players) => {
+        if (!players || !Array.isArray(players)) {
+            console.error("No valid players array provided to calculateAverage");
+            return "N/A";
+        }
+
+        // Filter out players with no votes and convert vote values to numbers
         const votes = players
-            .filter(player => player.vote !== null && player.vote !== undefined && !isNaN(Number(player.vote)))
+            .filter(player =>
+                player &&
+                player.vote !== null &&
+                player.vote !== undefined &&
+                !isNaN(Number(player.vote))
+            )
             .map(player => Number(player.vote));
 
-        if (votes.length === 0) return "N/A";
+        // Debug log to check what votes we're using
+        console.log("Calculating average from these votes:", votes);
+
+        if (votes.length === 0) {
+            console.log("No valid votes found for average calculation");
+            return "N/A";
+        }
 
         const sum = votes.reduce((total, vote) => total + vote, 0);
         const avg = sum / votes.length;
@@ -229,8 +246,8 @@ export default function SessionPage() {
                                         ) : (
                                             <button
                                                 onClick={handleSpin}
-                                                disabled={isSpinning || players?.filter(p => p.hasVoted)?.length === 0}
-                                                className={`px-4 py-2 text-sm font-medium rounded-md ${isSpinning || players?.filter(p => p.hasVoted)?.length === 0
+                                                disabled={isSpinning || !players.some(p => p.hasVoted)}
+                                                className={`px-4 py-2 text-sm font-medium rounded-md ${isSpinning || !players.some(p => p.hasVoted)
                                                     ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                                     : 'bg-red-600 text-white hover:bg-red-700'
                                                     }`}
@@ -312,7 +329,7 @@ export default function SessionPage() {
                                         <div className="flex flex-wrap gap-4 mt-2">
                                             <div>
                                                 <p className="text-sm text-gray-600">Selected Result</p>
-                                                <p className="text-2xl font-bold text-blue-700">{result} Points</p>
+                                                <p className="text-2xl font-bold text-blue-700">{result !== null ? `${result} Points` : 'Pending...'}</p>
                                             </div>
                                             <div>
                                                 <p className="text-sm text-gray-600">Average</p>
@@ -323,7 +340,7 @@ export default function SessionPage() {
                                             <div>
                                                 <p className="text-sm text-gray-600">Your Vote</p>
                                                 <p className="text-2xl font-bold text-blue-700">
-                                                    {selectedPoints || 'None'}
+                                                    {selectedPoints !== null ? `${selectedPoints}` : 'None'}
                                                 </p>
                                             </div>
                                         </div>
@@ -338,27 +355,27 @@ export default function SessionPage() {
                                     )}
                                 </div>
 
-                                {/* Votes distribution visualization */}
+                                {/* Player votes summary */}
                                 <div className="mt-6 pt-4 border-t border-gray-200">
-                                    <h4 className="text-sm font-medium text-gray-700 mb-3">Vote Distribution</h4>
-                                    <div className="flex flex-wrap gap-3">
-                                        {validPoints.map(point => {
-                                            const votesForPoint = players?.filter(p => p.vote === point).length || 0;
-                                            const hasVotes = votesForPoint > 0;
-
-                                            return (
-                                                <div
-                                                    key={point}
-                                                    className={`rounded-md px-3 py-2 text-center ${hasVotes
-                                                        ? 'bg-blue-100 border border-blue-200'
-                                                        : 'bg-gray-50 border border-gray-200'
-                                                        }`}
-                                                >
-                                                    <div className="font-bold text-lg">{point}</div>
-                                                    <div className="text-sm text-gray-600">{votesForPoint} vote{votesForPoint !== 1 ? 's' : ''}</div>
+                                    <h4 className="text-sm font-medium text-gray-700 mb-3">Player Votes</h4>
+                                    <div className="space-y-2">
+                                        {players.filter(p => p.hasVoted).map((player, index) => (
+                                            <div key={player.id || index} className="flex justify-between items-center p-2 bg-gray-50 rounded-md">
+                                                <div className="font-medium">
+                                                    {player.name === playerName ? `${player.name} (You)` : player.name}
+                                                    {player.isAdmin && <span className="ml-1 text-xs text-blue-600">(Admin)</span>}
                                                 </div>
-                                            );
-                                        })}
+                                                <div className={`font-bold ${player.vote === result ? 'text-green-600' : 'text-gray-700'}`}>
+                                                    {player.vote !== null && player.vote !== undefined ? player.vote : 'No vote'}
+                                                </div>
+                                            </div>
+                                        ))}
+
+                                        {players.filter(p => p.hasVoted).length === 0 && (
+                                            <div className="text-center py-3 text-gray-500">
+                                                No votes recorded for this task.
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>

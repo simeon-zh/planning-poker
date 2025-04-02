@@ -1,186 +1,49 @@
-import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
-import io from 'socket.io-client';
 
 // Import the RouletteWheel component directly with relative path
 import RouletteWheel from '../../components/RouletteWheel';
-
-// Define valid points directly to avoid import issues
-const validPoints = [0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89];
+import { useSession } from '../../contexts/SessionContext';
 
 export default function SessionPage() {
     const router = useRouter();
     const { sessionId } = router.query;
 
-    const [socket, setSocket] = useState(null);
-    const [isSpinning, setIsSpinning] = useState(false);
-    const [result, setResult] = useState(null);
-    const [playerName, setPlayerName] = useState('');
-    const [selectedPoints, setSelectedPoints] = useState(null);
-    const [hasSpun, setHasSpun] = useState(false);
-    const [isAdmin, setIsAdmin] = useState(false);
-    const [players, setPlayers] = useState([]);
+    // Function to calculate average of all votes
+    const calculateAverage = (players) => {
+        const votes = players
+            .filter(player => player.vote !== null && player.vote !== undefined)
+            .map(player => parseInt(player.vote));
 
-    // Task management
-    const [currentTask, setCurrentTask] = useState('');
-    const [newTaskName, setNewTaskName] = useState('');
-    const [isVotingActive, setIsVotingActive] = useState(false);
+        if (votes.length === 0) return "N/A";
 
-    // Player's own voting status
-    const [playerHasVoted, setPlayerHasVoted] = useState(false);
+        const sum = votes.reduce((total, vote) => total + vote, 0);
+        const avg = sum / votes.length;
 
-    // Initialize socket connection
-    useEffect(() => {
-        // Create socket connection only on client-side
-        if (typeof window === 'undefined') return;
-
-        const socketIo = io();
-        setSocket(socketIo);
-
-        // Clean up on unmount
-        return () => {
-            socketIo.disconnect();
-        };
-    }, []);
-
-    // Effect to handle initial loading and name check
-    useEffect(() => {
-        if (sessionId && socket) {
-            console.log(`Session page loaded with ID: ${sessionId}`);
-
-            // Check if player has a name (could be stored in localStorage or sessionStorage)
-            const storedName = localStorage.getItem('playerName');
-
-            if (!storedName) {
-                // If no name exists, redirect to home page with sessionId as query parameter
-                console.log('No player name found, redirecting to home page');
-                router.push(`/?sessionId=${sessionId}`);
-            } else {
-                // Set the player name from storage
-                setPlayerName(storedName);
-
-                // Determine if this user should be admin (based on being first or creating the session)
-                const isCreator = localStorage.getItem('isSessionCreator') === sessionId;
-                console.log(`Checking if creator: ${isCreator} for session ${sessionId}`);
-
-                // Join session with socket
-                socket.emit('joinSession', {
-                    sessionId,
-                    playerName: storedName,
-                    isAdmin: isCreator // Pass the admin flag
-                });
-
-                if (isCreator) {
-                    // If this user created the session, they are the admin
-                    setIsAdmin(true);
-                }
-            }
-        }
-    }, [sessionId, socket, router]);
-
-    // Set up socket event listeners
-    useEffect(() => {
-        if (!socket) return;
-
-        // Listen for whether user is admin
-        socket.on('adminStatus', (data) => {
-            console.log('Received admin status:', data.isAdmin);
-            setIsAdmin(data.isAdmin);
-        });
-
-        // Listen for player list updates
-        socket.on('playerJoined', (data) => {
-            console.log('Player joined:', data.player);
-            setPlayers((players) => [...players, data.player]);
-        });
-
-        // Listen for task updates
-        socket.on('taskUpdate', (data) => {
-            setCurrentTask(data.taskName);
-            setIsVotingActive(data.isActive);
-            setHasSpun(false);
-            setResult(null);
-            setSelectedPoints(null);
-            setPlayerHasVoted(false);
-        });
-
-        // Listen for voting status updates
-        socket.on('voteUpdate', (data) => {
-            setPlayers(data.players);
-        });
-
-        // Listen for wheel spin initiation
-        socket.on('wheelSpinning', () => {
-            setIsSpinning(true);
-            setHasSpun(false);
-        });
-
-        // Listen for wheel spin results
-        socket.on('wheelResult', (data) => {
-            setIsSpinning(false);
-            setHasSpun(true);
-            setResult(data.result);
-            setPlayers(data.players);
-        });
-
-        // Clean up listeners when component unmounts
-        return () => {
-            socket.off('adminStatus');
-            socket.off('playerList');
-            socket.off('taskUpdate');
-            socket.off('voteUpdate');
-            socket.off('wheelSpinning');
-            socket.off('wheelResult');
-        };
-    }, [socket, playerName]);
-
-    // Start a new voting round with a task
-    const handleStartVoting = (e) => {
-        e.preventDefault();
-
-        if (!newTaskName.trim() || !socket) return;
-
-        // Emit task start event to server
-        socket.emit('startTask', {
-            sessionId,
-            taskName: newTaskName
-        });
-
-        setNewTaskName('');
+        // Return with 1 decimal place if needed, otherwise as integer
+        return avg % 1 === 0 ? avg.toString() : avg.toFixed(1);
     };
 
-    // Start a new task after voting is complete
-    const handleNewTask = () => {
-        if (!socket) return;
-
-        // Emit end task event to server
-        socket.emit('endTask', { sessionId });
-    };
-
-    // Handle selection of points
-    const handleSelectPoints = (points) => {
-        if (!isVotingActive || !socket) return;
-
-        console.log(`Selected: ${points}`);
-        setSelectedPoints(points);
-        setPlayerHasVoted(true);
-
-        // Emit vote to server
-        socket.emit('submitVote', {
-            sessionId,
-            playerName,
-            points
-        });
-    };
-
-    // Handle spinning the wheel
-    const handleSpin = () => {
-        if (isSpinning || !isVotingActive || !socket) return;
-
-        // Emit spin event to server
-        socket.emit('spinWheel', { sessionId });
-    };
+    // Use the session context instead of local state
+    const {
+        socket,
+        isSpinning,
+        result,
+        playerName,
+        selectedPoints,
+        hasSpun,
+        isAdmin,
+        players,
+        currentTask,
+        newTaskName,
+        isVotingActive,
+        validPoints,
+        setNewTaskName,
+        handleStartVoting,
+        handleNewTask,
+        handleSelectPoints,
+        handleSpin,
+    } = useSession();
 
     // Loading state - show a loading message
     if (!sessionId) {
@@ -230,14 +93,14 @@ export default function SessionPage() {
                         <div className="bg-white shadow rounded-lg p-4">
                             <div className="flex justify-between items-center mb-4">
                                 <h2 className="text-lg font-medium">Participants</h2>
-                                <span className="text-sm text-gray-500">{players.length} players</span>
+                                <span className="text-sm text-gray-500">{players?.length} players</span>
                             </div>
 
-                            {players.length === 0 ? (
+                            {players?.length === 0 ? (
                                 <p className="text-gray-500 text-sm">Waiting for players to join...</p>
                             ) : (
                                 <ul className="space-y-2">
-                                    {players.map((player, index) => (
+                                    {players?.map((player, index) => (
                                         <li
                                             key={index}
                                             className={`flex items-center justify-between p-2 rounded-md ${player.hasVoted ? 'bg-green-100' : 'bg-gray-100'
@@ -249,7 +112,7 @@ export default function SessionPage() {
                                                         }`}></div>
                                                 </div>
                                                 <span className={player.name === playerName ? "font-medium" : ""}>
-                                                    {player.name} {player.name === playerName && "(You)"}
+                                                    {player.name === playerName ? `${player.name} (You)` : player.name}
                                                 </span>
                                                 {player.isAdmin && (
                                                     <span className="ml-1 text-xs text-blue-600">(Admin)</span>
@@ -293,6 +156,14 @@ export default function SessionPage() {
                         {isAdmin && !isVotingActive && (
                             <div className="bg-white shadow rounded-lg p-6 mb-6">
                                 <h2 className="text-lg font-medium mb-4">Start New Voting Round</h2>
+                                {isAdmin && (
+                                    <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                                        <p className="text-sm text-yellow-700">
+                                            Note: Only one active session exists at a time.
+                                            If someone else creates a new session, this one will become inactive.
+                                        </p>
+                                    </div>
+                                )}
                                 <form onSubmit={handleStartVoting} className="space-y-4">
                                     <div>
                                         <label htmlFor="taskName" className="block text-sm font-medium text-gray-700">
@@ -338,7 +209,7 @@ export default function SessionPage() {
                                         ) : (
                                             <button
                                                 onClick={handleSpin}
-                                                disabled={isSpinning || players.filter(p => p.hasVoted).length === 0}
+
                                                 className={`px-4 py-2 text-sm font-medium rounded-md ${isSpinning || players.filter(p => p.hasVoted).length === 0
                                                     ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                                     : 'bg-red-600 text-white hover:bg-red-700'
@@ -354,8 +225,6 @@ export default function SessionPage() {
                                     <RouletteWheel
                                         isSpinning={isSpinning}
                                         result={result}
-                                        points={validPoints.slice(0, 8)}
-                                        onSpinComplete={() => console.log('Spin complete')}
                                     />
                                 </div>
 
@@ -390,11 +259,11 @@ export default function SessionPage() {
                                             <button
                                                 key={points}
                                                 onClick={() => handleSelectPoints(points)}
-                                                disabled={isSpinning || playerHasVoted}
+                                                disabled={isSpinning}
                                                 className={`p-4 text-center rounded-md transition-all ${isSelected
                                                     ? 'bg-red-600 text-white transform scale-110 shadow-md'
                                                     : 'bg-white border hover:bg-gray-50'
-                                                    } ${isSpinning || (playerHasVoted && !isSelected) ? 'cursor-not-allowed opacity-50' : ''
+                                                    } ${isSpinning ? 'cursor-not-allowed opacity-50' : ''
                                                     }`}
                                             >
                                                 {points}
@@ -409,47 +278,30 @@ export default function SessionPage() {
                         {hasSpun && (
                             <div className="bg-white shadow rounded-lg p-6">
                                 <h3 className="text-lg font-medium mb-4">Voting Results</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {players.map((player) => {
-                                        const isWinner = result === player.vote;
-                                        const isCurrentPlayer = player.name === playerName;
-
-                                        return (
-                                            <div
-                                                key={player.name}
-                                                className={`p-4 rounded-md ${isWinner ? 'bg-green-100' : 'bg-red-100'
-                                                    }`}
-                                            >
-                                                <div className="flex justify-between">
-                                                    <span className="font-medium">
-                                                        {player.name} {isCurrentPlayer && '(You)'}
-                                                    </span>
-                                                    {isWinner && (
-                                                        <span className="text-green-600 font-medium">Winner!</span>
-                                                    )}
-                                                </div>
-                                                <p className="text-2xl font-bold mt-1">{player.vote}</p>
-                                            </div>
-                                        );
-                                    })}
-
-                                    {/* Final score for task */}
-                                    <div className="p-4 rounded-md bg-blue-100 md:col-span-2">
-                                        <div className="flex justify-between items-center">
+                                <div className="flex justify-between items-center">
+                                    <div>
+                                        <span className="font-medium">Task: {currentTask}</span>
+                                        <div className="flex space-x-4 mt-2">
                                             <div>
-                                                <span className="font-medium">Task: {currentTask}</span>
-                                                <p className="text-2xl font-bold mt-1 text-blue-700">{result} Points</p>
+                                                <p className="text-sm text-gray-600">Selected Result</p>
+                                                <p className="text-2xl font-bold text-blue-700">{result} Points</p>
                                             </div>
-                                            {isAdmin && (
-                                                <button
-                                                    onClick={handleNewTask}
-                                                    className="px-4 py-2 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700"
-                                                >
-                                                    New Task
-                                                </button>
-                                            )}
+                                            <div>
+                                                <p className="text-sm text-gray-600">Average</p>
+                                                <p className="text-2xl font-bold text-blue-700">
+                                                    {calculateAverage(players)} Points
+                                                </p>
+                                            </div>
                                         </div>
                                     </div>
+                                    {isAdmin && (
+                                        <button
+                                            onClick={handleNewTask}
+                                            className="px-4 py-2 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700"
+                                        >
+                                            New Task
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         )}

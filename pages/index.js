@@ -66,10 +66,12 @@ export default function Home() {
         try {
             // Store the player name in localStorage before redirecting
             localStorage.setItem('playerName', adminName);
-            localStorage.setItem('isSessionCreator', newSessionId);
 
             // Generate a random session ID
             const newSessionId = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+            localStorage.setItem('isSessionCreator', newSessionId);
+
 
             console.log(`Created session: ${newSessionId}`);
 

@@ -1,0 +1,66 @@
+/* styles/globals.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom styles for the roulette game */
+@layer components {
+  /* Animation for winning player */
+  .winner-flash {
+    animation: flash-green 1s ease-in-out 3;
+  }
+
+  /* Animation for losing player */
+  .loser-flash {
+    animation: flash-red 1s ease-in-out 3;
+  }
+
+  /* Style for the roulette pointer */
+  .roulette-pointer {
+    @apply absolute w-0 h-0;
+    top: -5px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-bottom: 20px solid #ffb700;
+    z-index: 20;
+  }
+
+  /* Styles for betting chips */
+  .betting-chip {
+    @apply flex items-center justify-center rounded-full border-4 font-bold text-white;
+    width: 60px;
+    height: 60px;
+    background: radial-gradient(circle at center, #d10000, #8b0000);
+    border-color: #fff;
+    text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.5);
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+  }
+
+  .betting-chip.selected {
+    @apply transform scale-110 shadow-lg;
+    border-color: #ffcc00;
+  }
+}
+
+/* Custom keyframes for animations */
+@keyframes flash-green {
+  0%,
+  100% {
+    background-color: transparent;
+  }
+  50% {
+    background-color: rgba(0, 255, 0, 0.3);
+  }
+}
+
+@keyframes flash-red {
+  0%,
+  100% {
+    background-color: transparent;
+  }
+  50% {
+    background-color: rgba(255, 0, 0, 0.3);
+  }
+}

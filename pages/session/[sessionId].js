@@ -345,8 +345,8 @@ export default function SessionPage() {
                                                 onClick={handleSpin}
                                                 disabled={isSpinning || players.filter(p => p.hasVoted).length === 0}
                                                 className={`px-4 py-2 text-sm font-medium rounded-md ${isSpinning || players.filter(p => p.hasVoted).length === 0
-                                                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                                        : 'bg-red-600 text-white hover:bg-red-700'
+                                                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                                    : 'bg-red-600 text-white hover:bg-red-700'
                                                     }`}
                                             >
                                                 {isSpinning ? 'Spinning...' : 'Spin the Wheel!'}
@@ -397,8 +397,8 @@ export default function SessionPage() {
                                                 onClick={() => handleSelectPoints(points)}
                                                 disabled={isSpinning || playerHasVoted}
                                                 className={`p-4 text-center rounded-md transition-all ${isSelected
-                                                        ? 'bg-red-600 text-white transform scale-110 shadow-md'
-                                                        : 'bg-white border hover:bg-gray-50'
+                                                    ? 'bg-red-600 text-white transform scale-110 shadow-md'
+                                                    : 'bg-white border hover:bg-gray-50'
                                                     } ${isSpinning || (playerHasVoted && !isSelected) ? 'cursor-not-allowed opacity-50' : ''
                                                     }`}
                                             >

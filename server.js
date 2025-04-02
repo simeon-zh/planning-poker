@@ -33,7 +33,7 @@ app.prepare().then(() => {
 
             // Check if this is the first player (admin)
             const roomSize = io.sockets.adapter.rooms.get(sessionId).size;
-            const isAdmin = roomSize === 1;
+            const isAdmin = roomSize <= 1;
 
             // Tell the client if they're admin
             socket.emit('adminStatus', { isAdmin });
